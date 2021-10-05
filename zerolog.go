@@ -1,7 +1,6 @@
 package zerolog
 
 import (
-	"embed"
 	"os"
 
 	"github.com/go-gluon/gluon"
@@ -10,35 +9,37 @@ import (
 	zlog "github.com/rs/zerolog/log"
 )
 
+//go:generate gluon-generate --target=config
+
+//gluon:config
 type ZerologConfig struct {
-	Log struct {
-		Debug bool `config:"debug"`
-		Json  bool `config:"json"`
-	} `config:"log"`
+	Debug bool `config:"debug"`
+	Json  bool `config:"json"`
 }
 
-type ExtensionProvider struct {
+type ZerologExtension struct {
+	gluon.Annotation `name:"zerolog" priority:"10"`
+	config           *ZerologConfig
 }
 
-func (e ExtensionProvider) NewExtesion() gluon.Extension {
-	return gluon.Extension{
-		Name:     "zerolog",
-		Priority: 10,
-		Init:     Init,
-		Config:   &ZerologConfig{},
+func (e *ZerologExtension) InitConfig() interface{} {
+	e.config = &ZerologConfig{
+		Debug: false,
+		Json:  false,
 	}
+	return e.config
 }
 
-func Init(resources embed.FS, config interface{}) error {
+func (e *ZerologExtension) Start() {}
 
-	tmp := config.(*ZerologConfig)
-	if !tmp.Log.Json {
+func (e *ZerologExtension) Init(info *gluon.GluonInfo, runtime *gluon.Runtime) error {
+	if !e.config.Json {
 		zlog.Logger = zlog.Output(zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: zerolog.TimeFieldFormat}).With().Logger()
 	} else {
 		zlog.Logger = zerolog.New(os.Stderr).With().Timestamp().Logger()
 	}
 
-	if !tmp.Log.Debug {
+	if e.config.Debug {
 		zlog.Logger = zlog.Level(zerolog.DebugLevel)
 	} else {
 		zlog.Logger = zlog.Level(zerolog.InfoLevel)
